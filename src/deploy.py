@@ -37,11 +37,15 @@ def main():
         if not ray.is_initialized():
             print(f"Initializing Ray with dashboard on port {dashboard_port}...")
             # Bind dashboard to 0.0.0.0 to make it accessible from outside the container
+            # Metrics export port (8080) is used by Prometheus for scraping
+            metrics_export_port = get_env_or_default("RAY_METRICS_EXPORT_PORT", "8080", int)
             ray.init(
                 dashboard_port=dashboard_port,
                 dashboard_host="0.0.0.0",  # Allow access from Docker network
+                metrics_export_port=metrics_export_port,  # Enable Prometheus metrics scraping
                 ignore_reinit_error=True,
             )
+            print(f"Ray metrics export enabled on port {metrics_export_port} for Prometheus")
         else:
             print("Ray is already initialized")
     except Exception as e:

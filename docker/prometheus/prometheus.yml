@@ -1,0 +1,27 @@
+# Prometheus configuration for Ray cluster metrics
+# This configures Prometheus to scrape metrics from Ray nodes
+
+global:
+  scrape_interval: 15s      # How frequently to scrape targets
+  evaluation_interval: 15s  # How frequently to evaluate rules
+  external_labels:
+    cluster: 'ray-gpu-cluster'
+    monitor: 'gpu-cluster-monitor'
+
+# Scrape configurations
+scrape_configs:
+  # Scrape Ray head node metrics
+  - job_name: 'ray-head'
+    static_configs:
+      - targets: ['ray-serve:8080']
+        labels:
+          node_type: 'head'
+          cluster: 'ray-gpu-cluster'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

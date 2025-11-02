@@ -10,6 +10,12 @@ services:
       # NVIDIA GPU configuration
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      # Prometheus and Grafana integration for Ray Dashboard
+      # Note: RAY_GRAFANA_IFRAME_HOST is the URL accessible from the browser (host machine)
+      # It should match the Grafana port exposed on the host
+      RAY_PROMETHEUS_HOST: "http://prometheus:9090"
+      RAY_GRAFANA_HOST: "http://grafana:3000"
+      RAY_GRAFANA_IFRAME_HOST: "${RAY_GRAFANA_IFRAME_HOST:-http://localhost:13000}"
       # Load all environment variables from .env and .secrets
     env_file:
       - ../.env
@@ -19,6 +25,8 @@ services:
       - "${RAY_API_PORT:-8000}:8000"
       # Ray Dashboard port (configurable via .env)
       - "${RAY_DASHBOARD_PORT:-8265}:8265"
+      # Ray Metrics port for Prometheus scraping (default: 18080 to avoid conflicts)
+      - "${RAY_METRICS_PORT:-18080}:8080"
     volumes:
       # Optional: Mount model cache directory
       - model_cache:/root/.cache/huggingface
@@ -30,6 +38,49 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
+
+  # Prometheus - Metrics collection and storage
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gpu-cluster-prometheus
+    ports:
+      # Prometheus web UI port (configurable via .env)
+      - "${PROMETHEUS_PORT:-19090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - ray-serve
+    networks:
+      - gpu-cluster-network
+    restart: unless-stopped
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gpu-cluster-grafana
+    ports:
+      # Grafana web UI port (configurable via .env)
+      - "${GRAFANA_PORT:-13000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - gpu-cluster-network
+    restart: unless-stopped
 
   # Nginx reverse proxy
   nginx:
@@ -44,6 +95,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - ray-serve
+      - prometheus
+      - grafana
     networks:
       - gpu-cluster-network
     restart: unless-stopped
@@ -59,5 +112,9 @@ networks:
 
 volumes:
   model_cache:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
