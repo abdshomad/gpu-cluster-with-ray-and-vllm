@@ -30,6 +30,8 @@ services:
     volumes:
       # Optional: Mount model cache directory
       - model_cache:/root/.cache/huggingface
+      # Share Ray metrics directory with Prometheus
+      - ray_metrics:/tmp/ray
     networks:
       - gpu-cluster-network
     healthcheck:
@@ -49,6 +51,8 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
+      # Mount Ray's metrics directory to access service discovery and config
+      - ray_metrics:/tmp/ray:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -116,5 +120,7 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  ray_metrics:
     driver: local
 
