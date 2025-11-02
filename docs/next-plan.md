@@ -1,7 +1,7 @@
 # Next Phase Implementation Plan - GPU Cluster Platform Enhancements
 
 ## Overview
-This document outlines the next phase of development for the GPU Cluster Platform, focusing on security (PII masking), advanced features, and production hardening based on the vllm-ray-serve-guide.md.
+This document outlines the next phase of development for the GPU Cluster Platform, with **high priority on multi-model and multi-cluster support** to enable users to deploy multiple models and scale across GPU clusters. Additional focus areas include security (PII masking), advanced features, and production hardening based on the vllm-ray-serve-guide.md.
 
 ## Plan Format
 Each plan item follows the format:
@@ -11,7 +11,166 @@ Each plan item follows the format:
 
 ---
 
-## Part 3: PII Security Implementation (vllm-ray-serve-guide.md Section 3)
+## Part 1: High-Priority Infrastructure (Multi-Model & Multi-Cluster Support)
+
+### AA001: Implement Multi-Model Deployment Support
+**Status**: pending
+**Implemented Date**: 
+
+Enable deployment and management of multiple LLM models simultaneously:
+- Extend `deploy.py` to accept multiple MODEL_IDs via configuration
+- Configure separate route prefixes per model (e.g., `/v1/models/{model_id}`)
+- Support OpenAI-style model selection in API requests
+- Implement dynamic model loading/unloading without service restart
+- Allow different models with different GPU allocations and autoscaling configs
+- Add model metadata endpoint (list all available models)
+
+**Implementation Details**:
+- Create `src/models/model_manager.py` for model lifecycle management
+- Update `src/deploy.py` to parse multiple MODEL_IDs from environment (comma-separated or JSON)
+- Implement model registry to track available models and their configs
+- Use multiple LLMConfig objects in `build_openai_app`
+- Add model selection middleware to route requests to correct model deployment
+- Implement `/v1/models` endpoint returning available models
+- Support per-model configuration (tensor_parallel_size, accelerator_type, etc.)
+- Add environment variable `MODELS_CONFIG` (JSON) for multi-model setup
+
+**Files to Create/Modify**:
+- `src/models/__init__.py`
+- `src/models/model_manager.py` (model registry and lifecycle)
+- `src/models/model_router.py` (request routing logic)
+- `src/deploy.py` (multi-model deployment logic)
+- `.env` (add MODELS_CONFIG with example JSON)
+- `docs/guides/operator-guides.md` (multi-model deployment guide)
+
+**Example Configuration**:
+```json
+MODELS_CONFIG='[
+  {
+    "model_id": "Qwen/Qwen2.5-32B-Instruct",
+    "route_prefix": "/v1/models/qwen",
+    "tensor_parallel_size": 4,
+    "accelerator_type": "L4",
+    "min_replicas": 1,
+    "max_replicas": 4
+  },
+  {
+    "model_id": "meta-llama/Llama-3-8B-Instruct",
+    "route_prefix": "/v1/models/llama",
+    "tensor_parallel_size": 2,
+    "accelerator_type": "L4",
+    "min_replicas": 1,
+    "max_replicas": 2
+  }
+]'
+```
+
+---
+
+### AA002: Implement Multi-Node/Multi-Cluster GPU Support
+**Status**: pending
+**Implemented Date**: 
+
+Enable deployment across multiple GPU nodes and clusters:
+- Support Ray cluster connection to external Ray head node
+- Implement worker node discovery and management
+- Configure model distribution across multiple nodes (pipeline parallelism)
+- Add cluster health monitoring and node failure handling
+- Support heterogeneous GPU clusters (mixed GPU types)
+- Implement automatic load balancing across nodes
+
+**Implementation Details**:
+- Add `RAY_HEAD_ADDRESS` environment variable for connecting to existing cluster
+- Update `src/deploy.py` to support cluster mode vs. standalone mode
+- Implement cluster discovery and node registration
+- Add pipeline parallelism configuration with automatic node assignment
+- Create `src/cluster/cluster_manager.py` for cluster operations
+- Add cluster status endpoint showing all nodes and their GPU resources
+- Implement node health checks and automatic reconnection
+- Support dynamic worker node addition/removal
+- Add GPU resource reservation per model across nodes
+
+**Files to Create/Modify**:
+- `src/cluster/__init__.py`
+- `src/cluster/cluster_manager.py` (cluster connection and management)
+- `src/cluster/node_discovery.py` (worker node discovery)
+- `src/deploy.py` (add cluster mode support)
+- `.env` (add RAY_HEAD_ADDRESS, RAY_CLUSTER_MODE, etc.)
+- `docker/docker-compose.yml` (add support for multi-node deployment)
+- `docs/guides/operator-guides.md` (multi-node cluster setup guide)
+
+**Configuration Variables**:
+- `RAY_CLUSTER_MODE`: "standalone" | "cluster" (default: standalone)
+- `RAY_HEAD_ADDRESS`: Address of Ray head node (e.g., "ray://head-node:10001")
+- `PIPELINE_PARALLEL_SIZE`: Number of pipeline stages (requires multiple nodes)
+- `ENABLE_NODE_AUTODISCOVERY`: Auto-discover worker nodes (default: true)
+
+---
+
+### AA003: Implement Model Routing and Load Balancing
+**Status**: pending
+**Implemented Date**: 
+
+Create intelligent routing layer for multiple models and clusters:
+- Implement round-robin and least-connections load balancing per model
+- Add model-specific request queuing and throttling
+- Support model affinity (route requests based on user/session)
+- Implement request distribution across model replicas
+- Add circuit breaker pattern for failed model deployments
+- Create unified API gateway supporting all models and clusters
+
+**Implementation Details**:
+- Create `src/routing/model_router.py` with load balancing algorithms
+- Implement health-based routing (skip unhealthy replicas)
+- Add request queuing when all replicas are busy
+- Support sticky sessions for conversation continuity
+- Implement rate limiting per model (not just per IP)
+- Add metrics for routing decisions (latency, errors, throughput)
+- Create admin API for manual model routing control
+
+**Files to Create/Modify**:
+- `src/routing/__init__.py`
+- `src/routing/model_router.py` (routing logic)
+- `src/routing/load_balancer.py` (load balancing algorithms)
+- `src/routing/circuit_breaker.py` (failure handling)
+- Update Nginx config or create Ray Serve routing service
+- `docs/guides/operator-guides.md` (routing configuration)
+
+---
+
+### AA004: Add GPU Resource Management and Allocation
+**Status**: pending
+**Implemented Date**: 
+
+Implement intelligent GPU resource allocation across models and clusters:
+- Track GPU utilization per model deployment
+- Implement GPU reservation and quota system
+- Add resource scheduling (which model gets GPUs when)
+- Support GPU sharing (time-slicing) for smaller models
+- Add resource pool management (dedicated pools per model/cluster)
+- Implement GPU monitoring and alerting for resource exhaustion
+
+**Implementation Details**:
+- Create `src/resources/gpu_manager.py` for GPU tracking
+- Implement resource reservation API
+- Add GPU quota limits per model or user
+- Create resource pool configuration system
+- Integrate with Ray's resource management
+- Add Prometheus metrics for GPU allocation
+- Create Grafana dashboard for GPU resource tracking
+- Implement automatic scaling based on GPU availability
+
+**Files to Create/Modify**:
+- `src/resources/__init__.py`
+- `src/resources/gpu_manager.py` (GPU resource tracking)
+- `src/resources/resource_scheduler.py` (allocation logic)
+- `docker/grafana/provisioning/dashboards/gpu_resources_dashboard.json`
+- `.env` (add GPU quota and pool configuration)
+- `docs/guides/operator-guides.md` (resource management guide)
+
+---
+
+## Part 2: PII Security Implementation (vllm-ray-serve-guide.md Section 3)
 
 ### AB001: Implement Presidio Core Libraries
 **Status**: pending
@@ -133,28 +292,32 @@ Instrument PII service with observability:
 
 ---
 
-## Part 4: Advanced Deployment Features
+## Part 3: Advanced Deployment Features
 
 ### AB006: Implement Pipeline Parallelism Support
 **Status**: pending
 **Implemented Date**: 
 
 Add configuration support for multi-node pipeline parallelism:
-- Add `PIPELINE_PARALLEL_SIZE` environment variable
+- Add `PIPELINE_PARALLEL_SIZE` environment variable (per model in multi-model setup)
 - Update `deploy.py` to set `pipeline_parallel_size` in engine_kwargs when > 1
 - Document multi-node setup requirements
 - Add validation for TP and PP size combinations
+- Integrate with AA002 (Multi-Node Support) for automatic node assignment
 
 **Implementation Details**:
-- Update `src/deploy.py` LLMConfig to support pipeline_parallel_size
-- Add environment variable parsing
-- Add validation logic (PP requires multi-node cluster)
+- Update `src/deploy.py` LLMConfig to support pipeline_parallel_size per model
+- Add environment variable parsing (supports per-model config in MODELS_CONFIG)
+- Add validation logic (PP requires multi-node cluster, validate node count)
+- Integrate with cluster manager to assign pipeline stages to nodes
 - Update documentation with multi-node deployment guide
 
 **Files to Create/Modify**:
-- `src/deploy.py` (add PP support)
-- `.env` (add PIPELINE_PARALLEL_SIZE)
-- `docs/guides/operator-guides.md` (multi-node setup)
+- `src/deploy.py` (add PP support, integrate with AA002)
+- `.env` (add PIPELINE_PARALLEL_SIZE in MODELS_CONFIG)
+- `docs/guides/operator-guides.md` (multi-node setup with pipeline parallelism)
+
+**Note**: This plan works closely with AA002 (Multi-Node Support). Pipeline parallelism requires multiple nodes to be configured first.
 
 ---
 
@@ -209,7 +372,7 @@ Add Datadog Agent integration following guide Section 2.3.2:
 
 ---
 
-## Part 5: Production Hardening
+## Part 4: Production Hardening
 
 ### AB009: Implement Request Rate Limiting
 **Status**: pending
@@ -313,7 +476,7 @@ Enhance health check endpoints for better orchestration:
 
 ---
 
-## Part 6: Developer Experience
+## Part 5: Developer Experience
 
 ### AB013: Create Development/Testing Scripts
 **Status**: pending
@@ -368,33 +531,15 @@ Create detailed configuration templates and validation:
 
 ---
 
-### AB015: Implement Multi-Model Support
-**Status**: pending
+### AB015: (Merged into AA001)
+**Status**: cancelled
 **Implemented Date**: 
 
-Add support for deploying multiple models simultaneously:
-- Extend `deploy.py` to accept multiple LLMConfig objects
-- Configure separate route prefixes per model (e.g., `/v1/models/{model_id}`)
-- Implement model selection logic in build_openai_app
-- Add model switching/loading endpoints
-- Support different models with different GPU allocations
-
-**Implementation Details**:
-- Update `src/deploy.py` to parse multiple MODEL_IDs
-- Create model configuration array structure
-- Update route prefix logic for multi-model
-- Add model management endpoints (list, switch, unload)
-- Document multi-model deployment patterns
-
-**Files to Create/Modify**:
-- `src/deploy.py` (multi-model support)
-- `src/models/__init__.py` (model management utilities)
-- `.env` (add MULTI_MODEL configuration)
-- `docs/guides/operator-guides.md` (multi-model guide)
+This plan has been merged into AA001 (Implement Multi-Model Deployment Support) which provides more comprehensive multi-model functionality.
 
 ---
 
-## Part 7: Documentation and Guides
+## Part 6: Documentation and Guides
 
 ### AB016: Create PII Implementation Guide
 **Status**: pending
@@ -446,16 +591,23 @@ Create comprehensive production readiness checklist:
 
 ## Summary
 
-**Total Plans**: 17
-**Pending**: 17
+**Total Plans**: 20 (4 new high-priority plans added)
+**Pending**: 20
 **In Progress**: 0
 **Completed**: 0
-**Cancelled**: 0
+**Cancelled**: 1 (AB015 merged into AA001)
 
 **Priority Focus Areas**:
-1. **Security (AB001-AB005)**: PII masking is critical for production compliance
-2. **Production Hardening (AB009-AB012)**: Essential for real-world deployments
-3. **Advanced Features (AB006-AB008)**: Enable scaling and enterprise integration
-4. **Developer Experience (AB013-AB015)**: Improve maintainability and testing
-5. **Documentation (AB016-AB017)**: Ensure knowledge transfer and operations
+1. **HIGH PRIORITY - Infrastructure (AA001-AA004)**: Multi-model and multi-cluster support - critical for scalability
+2. **Security (AB001-AB005)**: PII masking is critical for production compliance
+3. **Production Hardening (AB009-AB012)**: Essential for real-world deployments
+4. **Advanced Features (AB006-AB008)**: Enable scaling and enterprise integration
+5. **Developer Experience (AB013-AB014)**: Improve maintainability and testing
+6. **Documentation (AB016-AB017)**: Ensure knowledge transfer and operations
+
+**New High-Priority Plans**:
+- **AA001**: Multi-Model Deployment Support - Users can deploy and manage multiple models simultaneously
+- **AA002**: Multi-Node/Multi-Cluster GPU Support - Support for distributed deployments across multiple GPU nodes
+- **AA003**: Model Routing and Load Balancing - Intelligent request routing across models and clusters
+- **AA004**: GPU Resource Management - Track and allocate GPU resources across models and clusters
 
