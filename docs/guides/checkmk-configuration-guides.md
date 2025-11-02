@@ -391,13 +391,16 @@ docker exec gpu-cluster-checkmk omd backup cmk
 - Note: DNS lookup error occurred but is expected for special agent hosts - not critical
 
 **Step 4: Add PromQL Services to Rule** ✅
-- Edited the Prometheus rule to add services
-- Added first service:
-  - **Service name**: `vLLM KV Cache Utilization`
+- Edited the Prometheus rule to add services using "Add new service" button
+- Added **Service 1**: `vLLM KV Cache Utilization`
   - **Metric label**: `kv_cache_usage_percent`
   - **PromQL query**: `avg(vllm:gpu_cache_usage_perc{job="ray"}) * 100`
-- Service added successfully - **3 pending changes** (rule, host, service)
-- Rule saved with service definition
+- Added **Service 2**: `Ray Serve Active Replicas`
+  - **Metric label**: `serve_active_replicas`
+  - **PromQL query**: `sum(serve_num_deployment_replicas{job="ray"})`
+- **Important**: Removed empty service entries and empty PromQL queries to resolve validation errors
+- Rule saved successfully - **1 pending change**
+- **Services summary**: 2 services configured and ready for activation
 
 **Step 5: Activate Changes** ✅
 - Navigated to Activate pending changes page
