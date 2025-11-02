@@ -2,6 +2,19 @@
 
 This document provides a comprehensive list of all accessible URLs and service endpoints for the GPU Cluster Platform.
 
+## Quick Reference Table
+
+| Service Name | URL (via Nginx) | URL (Direct) | Description |
+|--------------|----------------|--------------|-------------|
+| Ray Dashboard | `http://localhost:18081/` | `http://localhost:18265` | Ray Serve Dashboard - Cluster monitoring interface |
+| Ray API | `http://localhost:18081/v1` | `http://localhost:18000` | OpenAI-compatible API endpoint for LLM inference |
+| Grafana | `http://localhost:18081/grafana` | `http://localhost:13000` | Metrics visualization dashboard (requires login) |
+| Prometheus | `http://localhost:18081/prometheus` | `http://localhost:19090` | Metrics database and query interface |
+| Health Check | `http://localhost:18081/health` | - | Service health check endpoint |
+| Ray Metrics | - | `http://localhost:18080/metrics` | Prometheus metrics scraping endpoint |
+
+**Note**: Access via Nginx (recommended) provides unified access and proper routing. Direct access bypasses the proxy.
+
 ## Service Access Overview
 
 All services can be accessed either directly via their exposed ports, or through the Nginx reverse proxy. The Nginx proxy provides unified access and proper routing for all services.
