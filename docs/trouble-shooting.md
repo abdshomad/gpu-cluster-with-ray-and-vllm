@@ -17,6 +17,7 @@ This document contains all errors encountered during deployment and their soluti
 11. [Accelerator Type Not Recognized](#11-accelerator-type-not-recognized)
 12. [Docker Compose Version Attribute Warning](#12-docker-compose-version-attribute-warning)
 13. [Ray GPU Resource Allocation Errors](#13-ray-gpu-resource-allocation-errors)
+14. [Grafana Dashboard "rayServeDashboard" Not Found Error](#14-grafana-dashboard-rayservedashboard-not-found-error)
 
 ---
 
@@ -498,6 +499,80 @@ Multiple potential causes:
 - Match accelerator type to Ray's supported types
 - Check Ray cluster resources before deployment
 - Ensure Docker runtime is configured for GPU access (`runtime: nvidia` in docker-compose.yml)
+
+---
+
+## 14. Grafana Dashboard "rayServeDashboard" Not Found Error
+
+### Error Description
+
+```
+ERROR: Failed to load dashboard
+dashboards.dashboard.grafana.app "rayServeDashboard" not found
+```
+
+When accessing Ray Dashboard's metrics view at `http://localhost:18081/#/serve?...`, the dashboard fails to load with the above error.
+
+### Cause
+
+Ray Dashboard is trying to access Grafana dashboards using Grafana Operator APIs (Kubernetes Custom Resource Definitions), which require a Kubernetes cluster. In a Docker Compose setup, these CRDs don't exist, causing the 404 error.
+
+The Grafana Operator API endpoints (`/apis/dashboard.grafana.app/v1beta1/...`) are designed for Kubernetes environments where dashboards are managed as CRDs.
+
+### Solution
+
+The Ray Serve dashboards have been automatically copied to Grafana's provisioning directory and are available directly in Grafana. You have two options:
+
+**Option 1: Access Grafana Dashboard Directly (Recommended)**
+
+Access the Ray Serve dashboard directly in Grafana:
+
+```bash
+# Direct URL (replace port if different)
+http://localhost:13000/d/rayServeDashboard
+
+# Or via Nginx proxy (if configured)
+http://localhost:18081/grafana/d/rayServeDashboard
+```
+
+**Option 2: Import Dashboard Manually**
+
+If the dashboard isn't automatically loaded, you can import it manually:
+
+1. Access Grafana: `http://localhost:13000`
+2. Login with credentials (default: `admin` / `admin`)
+3. Go to Dashboards → Import
+4. Copy the dashboard JSON from the Ray container:
+   ```bash
+   docker exec ray-serve cat /tmp/ray/session_latest/metrics/grafana/dashboards/serve_grafana_dashboard.json
+   ```
+5. Paste the JSON and import
+
+**Automatic Dashboard Provisioning**
+
+The setup automatically copies Ray-generated dashboards to Grafana's provisioning directory:
+- `docker/grafana/provisioning/dashboards/ray_serve_dashboard.json`
+- `docker/grafana/provisioning/dashboards/ray_serve_deployment_dashboard.json`
+
+Grafana will automatically load these dashboards on startup.
+
+### Verification
+
+Verify the dashboard is loaded in Grafana:
+
+```bash
+# Check if dashboard exists via API
+docker exec gpu-cluster-grafana curl -s -u admin:admin \
+  "http://localhost:3000/api/dashboards/uid/rayServeDashboard" | \
+  python3 -c "import sys, json; d=json.load(sys.stdin); \
+  print('✓ Dashboard found:', d.get('dashboard', {}).get('title', 'N/A'))"
+```
+
+### Preventive Measures
+
+- Ray-generated dashboards are automatically copied to Grafana provisioning directory
+- Access dashboards directly in Grafana rather than through Ray Dashboard's embedded view
+- If deploying on Kubernetes, use Grafana Operator for proper CRD support
 
 ---
 
