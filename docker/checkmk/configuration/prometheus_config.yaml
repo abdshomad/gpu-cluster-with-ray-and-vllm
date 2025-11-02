@@ -1,0 +1,36 @@
+# CheckMK Prometheus Special Agent Configuration
+# This file configures CheckMK to use the Prometheus special agent
+# to query metrics from the Prometheus server
+#
+# Based on the integration pattern described in docs/vllm-ray-serve-guide.md
+# Section 2.3.1: CheckMK Integration
+
+# Prometheus server connection
+prometheus_url: "http://prometheus:9090"
+
+# Service discovery mode
+# Options: static, file_sd, kubernetes, etc.
+service_discovery: "static"
+
+# Default scrape interval
+scrape_interval: "15s"
+
+# Timeout for Prometheus queries
+query_timeout: "10s"
+
+# Labels to include in all metrics
+default_labels:
+  cluster: "ray-gpu-cluster"
+  monitor: "gpu-cluster-monitor"
+
+# Job filter - only scrape Ray metrics
+job_filter:
+  - "ray"
+  - "ray-head"
+
+# Metric filters (optional - include all by default)
+# metric_filters:
+#   include:
+#     - "vllm:.*"
+#     - "serve:.*"
+

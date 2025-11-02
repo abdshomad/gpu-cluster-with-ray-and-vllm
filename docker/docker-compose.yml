@@ -90,6 +90,32 @@ services:
       - gpu-cluster-network
     restart: unless-stopped
 
+  # CheckMK - Enterprise monitoring with Prometheus integration
+  checkmk:
+    image: checkmk/check-mk-raw:latest
+    container_name: gpu-cluster-checkmk
+    ports:
+      # CheckMK web UI port (configurable via .env)
+      - "${CHECKMK_PORT:-15000}:5000"
+      # CheckMK agent receiver port
+      - "${CHECKMK_AGENT_PORT:-6556}:6556"
+    volumes:
+      - checkmk_data:/omd/sites
+    environment:
+      - CMK_SITE_ID=cmk
+      - CMK_PASSWORD=${CHECKMK_PASSWORD:-admin}
+    depends_on:
+      - prometheus
+    networks:
+      - gpu-cluster-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/cmk/check_mk/login.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 240s
+
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
@@ -106,6 +132,7 @@ services:
       - ray-serve
       - prometheus
       - grafana
+      - checkmk
     networks:
       - gpu-cluster-network
     restart: unless-stopped
@@ -127,5 +154,7 @@ volumes:
   grafana_data:
     driver: local
   ray_metrics:
+    driver: local
+  checkmk_data:
     driver: local
 

@@ -8,6 +8,9 @@ This project provides a complete Docker-based deployment solution for serving LL
 - **vLLM**: High-performance inference engine with PagedAttention
 - **Ray Serve**: Production-grade serving framework with autoscaling
 - **Nginx**: Reverse proxy for unified API access
+- **Prometheus**: Metrics collection and storage
+- **Grafana**: Metrics visualization and dashboards
+- **CheckMK**: Enterprise monitoring with Prometheus integration
 - **Environment-based configuration**: All settings via `.env` and `.secrets` files
 
 ## Architecture
@@ -26,12 +29,17 @@ This project provides a complete Docker-based deployment solution for serving LL
        │
        │ Internal Network
        │
-┌──────▼──────────┐
-│  Ray Serve      │ (API: 8000, Dashboard: 8265)
-│  + vLLM Engine  │
-│  + Ray Dashboard│
-│  (GPU-enabled)  │
-└─────────────────┘
+┌──────▼──────────┐      ┌─────────────┐      ┌─────────────┐
+│  Ray Serve      │─────▶│ Prometheus   │─────▶│  CheckMK     │
+│  + vLLM Engine  │      │  (Metrics)   │      │  (Monitoring)│
+│  + Ray Dashboard│      └─────────────┘      └─────────────┘
+│  (GPU-enabled)  │            │                      │
+└─────────────────┘            │                      │
+                               ▼                      │
+                        ┌─────────────┐              │
+                        │   Grafana   │──────────────┘
+                        │ (Dashboards)│
+                        └─────────────┘
 ```
 
 ## Prerequisites
@@ -89,6 +97,16 @@ This project provides a complete Docker-based deployment solution for serving LL
    - `http://localhost:{NGINX_HTTP_PORT}/dashboard` (via Nginx, default: `http://localhost:18080/dashboard`)
    - `http://localhost:{RAY_DASHBOARD_PORT}` (direct access, default: `http://localhost:18265`)
    
+   **Monitoring & Observability:**
+   - **Prometheus:** `http://localhost:{PROMETHEUS_PORT}` (default: `http://localhost:19090`)
+     - Via Nginx: `http://localhost:{NGINX_HTTP_PORT}/prometheus`
+   - **Grafana:** `http://localhost:{GRAFANA_PORT}` (default: `http://localhost:13000`)
+     - Via Nginx: `http://localhost:{NGINX_HTTP_PORT}/grafana`
+     - Default credentials: `admin` / `admin` (configurable in `.env`)
+   - **CheckMK:** `http://localhost:{CHECKMK_PORT}/monitoring/check_mk/` (default: `http://localhost:15000/monitoring/check_mk/`)
+     - Via Nginx: `http://localhost:{NGINX_HTTP_PORT}/checkmk/monitoring/check_mk/`
+     - Default credentials: `cmkadmin` / `admin` (configurable in `.env`)
+   
    > **Note:** Port numbers depend on your `.env` configuration. Defaults shown assume custom port mappings to avoid conflicts.
 
 ## Configuration
@@ -115,6 +133,10 @@ All configuration is done via environment variables in `.env`:
   - **Note:** The dashboard runs on port 8265 inside the container; this setting maps it to the host
 - `NGINX_HTTP_PORT`: Nginx HTTP port on host (default: 80, recommended: 18080 to avoid conflicts)
 - `NGINX_HTTPS_PORT`: Nginx HTTPS port on host (default: 443)
+- `PROMETHEUS_PORT`: Prometheus web UI port on host (default: 19090)
+- `GRAFANA_PORT`: Grafana web UI port on host (default: 13000)
+- `CHECKMK_PORT`: CheckMK web UI port on host (default: 15000)
+- `CHECKMK_AGENT_PORT`: CheckMK agent receiver port on host (default: 6556)
 
 See `.env.example` for all available options.
 
@@ -122,6 +144,8 @@ See `.env.example` for all available options.
 
 Sensitive credentials go in `.secrets` (gitignored):
 - `HUGGINGFACE_TOKEN`: Required for private models on HuggingFace
+- `GRAFANA_PASSWORD`: Grafana admin password (default: `admin`)
+- `CHECKMK_PASSWORD`: CheckMK admin password (default: `admin`)
 
 ## Usage
 
@@ -177,8 +201,15 @@ gpu-cluster-with-ray-and-vllm/
 ├── docker/
 │   ├── Dockerfile              # Ray Serve container definition
 │   ├── docker-compose.yml      # Multi-container orchestration
-│   └── nginx/
-│       └── nginx.conf           # Reverse proxy configuration
+│   ├── nginx/
+│   │   └── nginx.conf           # Reverse proxy configuration
+│   ├── prometheus/
+│   │   └── prometheus.yml       # Prometheus scraping configuration
+│   ├── grafana/
+│   │   └── provisioning/        # Grafana dashboards and datasources
+│   └── checkmk/
+│       ├── configuration/       # CheckMK Prometheus agent config
+│       └── prometheus_services/ # vLLM service definitions
 ├── src/
 │   └── deploy.py               # Ray Serve deployment script
 ├── docs/
@@ -251,7 +282,51 @@ If you cannot access the dashboard:
 ### Container Health Checks
 - Check Ray Serve: `docker logs ray-serve`
 - Check Nginx: `docker logs gpu-cluster-nginx-proxy`
+- Check Prometheus: `docker logs gpu-cluster-prometheus`
+- Check Grafana: `docker logs gpu-cluster-grafana`
+- Check CheckMK: `docker logs gpu-cluster-checkmk`
 - View Ray Dashboard for detailed metrics and cluster status
+
+## Monitoring & Observability
+
+This deployment includes a comprehensive monitoring stack:
+
+### Prometheus
+- Collects metrics from Ray Serve and vLLM
+- Exposes metrics at `/metrics` endpoint
+- Accessible at `http://localhost:{PROMETHEUS_PORT}` or via Nginx at `/prometheus`
+
+### Grafana
+- Pre-configured dashboards for Ray and vLLM metrics
+- Automatically provisioned on startup
+- Accessible at `http://localhost:{GRAFANA_PORT}` or via Nginx at `/grafana`
+
+### CheckMK
+- Enterprise-grade monitoring with Prometheus integration
+- Monitors critical vLLM metrics (TTFT, TPOT, KV Cache Utilization)
+- Uses Prometheus special agent to query metrics
+- Pre-configured service definitions for vLLM Golden Signals
+- Accessible at `http://localhost:{CHECKMK_PORT}/monitoring/check_mk/` or via Nginx at `/checkmk`
+
+**CheckMK Setup:**
+After starting the services, configure CheckMK via the web UI:
+1. Create a new host representing the Prometheus data source
+2. Configure the Prometheus special agent pointing to `http://prometheus:9090`
+3. Enable service creation using PromQL queries
+4. Import services from the pre-configured definitions
+
+For detailed setup instructions, see `docker/checkmk/README.md`.
+
+**Critical Metrics Monitored:**
+- **vLLM Time to First Token (TTFT)** - Alert on p95 > 2s
+- **vLLM Time Per Output Token (TPOT)** - Generation speed
+- **vLLM KV Cache Utilization** - Primary bottleneck, alert on > 80%
+- **vLLM Request States** - Running and waiting requests
+- **Ray Serve Processing Latency** - Alert on p95 > 5s
+- **Ray Serve Throughput** - Requests per second (RPS)
+- **Ray Serve Replica Management** - Autoscaler activity
+
+See `docs/vllm-ray-serve-guide.md` Table 2.1 for complete metrics reference.
 
 ## Development
 
