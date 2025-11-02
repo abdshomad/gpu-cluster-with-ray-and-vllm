@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU Cluster Services</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .link-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .link-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+            background: #fff;
+        }
+
+        .link-card:active {
+            transform: translateY(-2px);
+        }
+
+        .link-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .link-path {
+            font-size: 0.9em;
+            color: #667eea;
+            font-family: 'Monaco', 'Courier New', monospace;
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .link-description {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .badge-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 GPU Cluster Services</h1>
+        <p class="subtitle">Available services and endpoints</p>
+        
+        <div class="links-grid">
+            <a href="/dashboard" class="link-card">
+                <div class="link-name">Ray Dashboard</div>
+                <div class="link-path">/dashboard</div>
+                <div class="link-description">Monitor Ray cluster status, jobs, actors, and metrics</div>
+                <span class="badge badge-primary">Dashboard</span>
+            </a>
+
+            <a href="/v1" class="link-card">
+                <div class="link-name">Ray Serve API</div>
+                <div class="link-path">/v1</div>
+                <div class="link-description">OpenAI-compatible API for LLM inference</div>
+                <span class="badge badge-success">API</span>
+            </a>
+
+            <a href="/grafana" class="link-card">
+                <div class="link-name">Grafana</div>
+                <div class="link-path">/grafana</div>
+                <div class="link-description">Metrics visualization and dashboards</div>
+                <span class="badge badge-info">Monitoring</span>
+            </a>
+
+            <a href="/prometheus" class="link-card">
+                <div class="link-name">Prometheus</div>
+                <div class="link-path">/prometheus</div>
+                <div class="link-description">Metrics collection and querying</div>
+                <span class="badge badge-info">Metrics</span>
+            </a>
+
+            <a href="/health" class="link-card">
+                <div class="link-name">Health Check</div>
+                <div class="link-path">/health</div>
+                <div class="link-description">Service health status endpoint</div>
+                <span class="badge badge-success">Status</span>
+            </a>
+
+            <a href="/login" class="link-card">
+                <div class="link-name">Login</div>
+                <div class="link-path">/login</div>
+                <div class="link-description">Redirects to Grafana login page</div>
+                <span class="badge badge-warning">Auth</span>
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>GPU Cluster Platform - vLLM + Ray Serve</p>
+        </div>
+    </div>
+</body>
+</html>
