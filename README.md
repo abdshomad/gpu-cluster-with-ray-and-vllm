@@ -44,7 +44,8 @@ This project provides a complete Docker-based deployment solution for serving LL
 
 1. **Clone and navigate to the project directory:**
    ```bash
-   cd GPU-CLUSTER
+   git clone https://github.com/abdshomad/gpu-cluster-with-ray-and-vllm.git
+   cd gpu-cluster-with-ray-and-vllm
    ```
 
 2. **Set up environment files:**
@@ -145,7 +146,7 @@ curl http://localhost/v1/chat/completions \
 ## Directory Structure
 
 ```
-GPU-CLUSTER/
+gpu-cluster-with-ray-and-vllm/
 ├── docker/
 │   ├── Dockerfile              # Ray Serve container definition
 │   ├── docker-compose.yml      # Multi-container orchestration
@@ -153,6 +154,9 @@ GPU-CLUSTER/
 │       └── nginx.conf           # Reverse proxy configuration
 ├── src/
 │   └── deploy.py               # Ray Serve deployment script
+├── docs/
+│   ├── plan.md                  # Implementation plan
+│   └── vllm-ray-serve-guide.md  # Comprehensive deployment guide
 ├── requirements.txt            # Python dependencies
 ├── .env.example                # Configuration template
 ├── .secrets                    # Secrets (gitignored)
@@ -203,4 +207,3 @@ Following `AGENTS.md` guidelines:
 ## License
 
 See project license file.
-
