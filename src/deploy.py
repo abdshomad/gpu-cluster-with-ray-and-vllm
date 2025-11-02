@@ -5,6 +5,7 @@ Implements the LLMConfig pattern from vllm-ray-serve-guide.md
 """
 
 import os
+import ray
 from ray import serve
 from ray.serve.llm import LLMConfig, build_openai_app
 
@@ -25,6 +26,28 @@ def main():
     """Main deployment function."""
     print("Initializing vLLM deployment with Ray Serve...")
     
+    # Initialize Ray with dashboard support
+    # NOTE: Inside the container, Ray Dashboard always runs on port 8265
+    # The host port mapping (RAY_DASHBOARD_PORT) is handled by Docker
+    dashboard_port = 8265  # Container internal port (always 8265)
+    host_dashboard_port = get_env_or_default("RAY_DASHBOARD_PORT", "8265", int)
+    
+    try:
+        # Check if Ray is already initialized
+        if not ray.is_initialized():
+            print(f"Initializing Ray with dashboard on port {dashboard_port}...")
+            # Bind dashboard to 0.0.0.0 to make it accessible from outside the container
+            ray.init(
+                dashboard_port=dashboard_port,
+                dashboard_host="0.0.0.0",  # Allow access from Docker network
+                ignore_reinit_error=True,
+            )
+        else:
+            print("Ray is already initialized")
+    except Exception as e:
+        print(f"Warning: Could not explicitly initialize Ray: {e}")
+        print("Ray will be auto-initialized by serve.run()")
+    
     # Read configuration from environment variables
     # Model Configuration
     model_id = get_env_or_default("MODEL_ID", "Qwen/Qwen2.5-32B-Instruct")
@@ -37,7 +60,23 @@ def main():
     num_replicas = get_env_or_default("NUM_REPLICAS", "1", int)
     
     # GPU Configuration
-    accelerator_type = get_env_or_default("ACCELERATOR_TYPE", "L4")
+    # Map common accelerator type variations to supported types
+    accelerator_type_raw = get_env_or_default("ACCELERATOR_TYPE", "L4")
+    accelerator_type_map = {
+        "L40": "L4",  # Map L40 to L4 (common typo/misconfiguration)
+        "l40": "L4",
+        "l4": "L4",
+    }
+    accelerator_type = accelerator_type_map.get(accelerator_type_raw, accelerator_type_raw)
+    
+    # Supported accelerator types for Ray Serve LLMConfig
+    supported_types = ["L4", "A100", "H100", "T4", "V100", "A10", "A10G"]
+    
+    if accelerator_type not in supported_types:
+        print(f"WARNING: Accelerator type '{accelerator_type}' may not be supported.")
+        print(f"Supported types: {', '.join(supported_types)}")
+        print(f"Attempting to continue anyway...")
+    
     tensor_parallel_size = get_env_or_default("TENSOR_PARALLEL_SIZE", "4", int)
     
     # vLLM Engine Configuration
@@ -112,6 +151,7 @@ def main():
     # serve.run deploys the application to the Ray cluster
     # and exposes it at the specified route prefix
     print(f"Deploying to Ray Serve with route prefix: {route_prefix}")
+    print(f"Ray Dashboard available at http://localhost:{host_dashboard_port} (from host)")
     serve.run(llm_app, route_prefix=route_prefix)
 
 

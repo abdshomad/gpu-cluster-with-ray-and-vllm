@@ -20,15 +20,16 @@ This project provides a complete Docker-based deployment solution for serving LL
        │ HTTP/HTTPS
        │
 ┌──────▼──────────┐
-│   Nginx Proxy   │ (Port 80/443)
+│   Nginx Proxy   │ (Host: 80/443, Internal: 80)
 │   (docker/nginx)│
 └──────┬──────────┘
        │
        │ Internal Network
        │
 ┌──────▼──────────┐
-│  Ray Serve      │ (Port 8000)
+│  Ray Serve      │ (API: 8000, Dashboard: 8265)
 │  + vLLM Engine  │
+│  + Ray Dashboard│
 │  (GPU-enabled)  │
 └─────────────────┘
 ```
@@ -62,19 +63,33 @@ This project provides a complete Docker-based deployment solution for serving LL
    - Set your `MODEL_ID` (e.g., `Qwen/Qwen2.5-32B-Instruct`)
    - Configure `TENSOR_PARALLEL_SIZE` to match your GPU count
    - Set `ACCELERATOR_TYPE` to match your GPU (L4, H100, A100, etc.)
-   - Adjust port mappings if needed
+     - **Note:** Common variations are automatically mapped (e.g., `L40` → `L4`)
+   - Adjust port mappings if needed (defaults use 18000/18265/18080 to avoid conflicts)
 
 4. **Build and start the services:**
    ```bash
    cd docker
-   docker-compose up --build
+   docker compose up --build -d
+   ```
+   
+   > **Note:** The `-d` flag runs containers in detached mode. Remove it to see logs in foreground.
+   
+   To view logs:
+   ```bash
+   docker compose logs -f
    ```
 
 5. **Access the services:**
-   - **API Endpoint**: `http://localhost/v1` (via Nginx)
-   - **Ray Dashboard**: `http://localhost/dashboard` (via Nginx)
-   - **Direct Ray API**: `http://localhost:8000/v1`
-   - **Direct Dashboard**: `http://localhost:8265`
+   
+   **API Endpoints:**
+   - `http://localhost:{NGINX_HTTP_PORT}/v1` (via Nginx, default: `http://localhost:18080/v1`)
+   - `http://localhost:{RAY_API_PORT}/v1` (direct Ray Serve, default: `http://localhost:18000/v1`)
+   
+   **Ray Dashboard:**
+   - `http://localhost:{NGINX_HTTP_PORT}/dashboard` (via Nginx, default: `http://localhost:18080/dashboard`)
+   - `http://localhost:{RAY_DASHBOARD_PORT}` (direct access, default: `http://localhost:18265`)
+   
+   > **Note:** Port numbers depend on your `.env` configuration. Defaults shown assume custom port mappings to avoid conflicts.
 
 ## Configuration
 
@@ -86,6 +101,8 @@ All configuration is done via environment variables in `.env`:
 - `MODEL_ID`: HuggingFace model identifier
 - `TENSOR_PARALLEL_SIZE`: Number of GPUs for tensor parallelism
 - `ACCELERATOR_TYPE`: GPU type (L4, H100, A100, etc.)
+  - Supported types: L4, A100, H100, T4, V100, A10, A10G
+  - Common variations are auto-mapped (e.g., `L40` → `L4`)
 
 **Scaling Configuration:**
 - `MIN_REPLICAS`: Minimum autoscaling replicas (default: 1)
@@ -93,10 +110,11 @@ All configuration is done via environment variables in `.env`:
 - `TARGET_ONGOING_REQUESTS`: Target concurrent requests per replica (default: 32)
 
 **Port Configuration:**
-- `RAY_API_PORT`: Ray Serve API port (default: 8000)
-- `RAY_DASHBOARD_PORT`: Ray Dashboard port (default: 8265)
-- `NGINX_HTTP_PORT`: Nginx HTTP port (default: 80)
-- `NGINX_HTTPS_PORT`: Nginx HTTPS port (default: 443)
+- `RAY_API_PORT`: Host port for Ray Serve API (default: 8000, recommended: 18000 to avoid conflicts)
+- `RAY_DASHBOARD_PORT`: Host port for Ray Dashboard (default: 8265, recommended: 18265 to avoid conflicts)
+  - **Note:** The dashboard runs on port 8265 inside the container; this setting maps it to the host
+- `NGINX_HTTP_PORT`: Nginx HTTP port on host (default: 80, recommended: 18080 to avoid conflicts)
+- `NGINX_HTTPS_PORT`: Nginx HTTPS port on host (default: 443)
 
 See `.env.example` for all available options.
 
@@ -115,7 +133,7 @@ Once the services are running, test with an OpenAI-compatible client:
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost/v1",
+    base_url="http://localhost:{NGINX_HTTP_PORT}/v1",  # Replace with your port, e.g., 18080
     api_key="not-needed"
 )
 
@@ -135,7 +153,16 @@ for chunk in response:
 ### Using cURL
 
 ```bash
-curl http://localhost/v1/chat/completions \
+# Via Nginx (replace {NGINX_HTTP_PORT} with your configured port, e.g., 18080)
+curl http://localhost:{NGINX_HTTP_PORT}/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen/Qwen2.5-32B-Instruct",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Direct to Ray Serve (replace {RAY_API_PORT} with your configured port, e.g., 18000)
+curl http://localhost:{RAY_API_PORT}/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "Qwen/Qwen2.5-32B-Instruct",
@@ -187,10 +214,44 @@ docker build -f docker/Dockerfile -t gpu-cluster-ray-serve .
 - Verify `TENSOR_PARALLEL_SIZE` doesn't exceed available GPUs
 - For private models, ensure `HUGGINGFACE_TOKEN` is set in `.secrets`
 
+### Dashboard Access Issues
+
+If you cannot access the dashboard:
+
+1. **Verify containers are running:**
+   ```bash
+   docker compose -f docker/docker-compose.yml ps
+   ```
+
+2. **Check Ray Dashboard is bound correctly:**
+   ```bash
+   docker logs ray-serve | grep -i "dashboard"
+   ```
+   Should show: `Started a local Ray instance. View the dashboard at...`
+
+3. **Test direct access:**
+   ```bash
+   curl http://localhost:{RAY_DASHBOARD_PORT}
+   # or
+   curl http://localhost:18265  # if using default mapping
+   ```
+
+4. **Test via Nginx:**
+   ```bash
+   curl http://localhost:{NGINX_HTTP_PORT}/dashboard
+   # or
+   curl http://localhost:18080/dashboard  # if using default mapping
+   ```
+
+5. **Check nginx logs for proxy errors:**
+   ```bash
+   docker logs gpu-cluster-nginx-proxy
+   ```
+
 ### Container Health Checks
 - Check Ray Serve: `docker logs ray-serve`
-- Check Nginx: `docker logs nginx-proxy`
-- View Ray Dashboard for detailed metrics
+- Check Nginx: `docker logs gpu-cluster-nginx-proxy`
+- View Ray Dashboard for detailed metrics and cluster status
 
 ## Development
 
