@@ -1,0 +1,15 @@
+# Core dependencies for vLLM + Ray Serve deployment
+# Generated following AGENTS.md: use uv pip install -r requirements.txt
+
+# Ray Serve with LLM support
+ray[serve,llm]>=2.45.0
+
+# vLLM inference engine
+vllm
+
+# OpenAI client for testing
+openai
+
+# Environment variable loading (if needed)
+python-dotenv
+

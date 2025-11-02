@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Environment files (loaded separately)
+.env
+.secrets
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Model cache (will be mounted as volume)
+.cache/
+
+# Docker
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile*
+

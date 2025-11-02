@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Ray Serve service (vLLM deployment)
+  ray-serve:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ray-serve
+    runtime: nvidia
+    environment:
+      # NVIDIA GPU configuration
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      # Load all environment variables from .env and .secrets
+    env_file:
+      - ../.env
+      - ../.secrets
+    ports:
+      # Ray API port (configurable via .env)
+      - "${RAY_API_PORT:-8000}:8000"
+      # Ray Dashboard port (configurable via .env)
+      - "${RAY_DASHBOARD_PORT:-8265}:8265"
+    volumes:
+      # Optional: Mount model cache directory
+      - model_cache:/root/.cache/huggingface
+    networks:
+      - gpu-cluster-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      # Nginx HTTP port (configurable via .env)
+      - "${NGINX_HTTP_PORT:-80}:80"
+      # Nginx HTTPS port (configurable via .env)
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ray-serve
+    networks:
+      - gpu-cluster-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --quiet --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  gpu-cluster-network:
+    driver: bridge
+
+volumes:
+  model_cache:
+    driver: local
+
