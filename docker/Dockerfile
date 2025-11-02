@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
@@ -34,7 +34,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY requirements.txt /app/
 
 # Install Python dependencies using uv
-RUN uv pip install --system -r requirements.txt
+RUN uv pip install -r requirements.txt
 
 # Copy deployment script
 COPY src/ /app/src/

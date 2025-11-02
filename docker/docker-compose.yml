@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Ray Serve service (vLLM deployment)
   ray-serve:
@@ -36,7 +34,7 @@ services:
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
-    container_name: nginx-proxy
+    container_name: gpu-cluster-nginx-proxy
     ports:
       # Nginx HTTP port (configurable via .env)
       - "${NGINX_HTTP_PORT:-80}:80"
