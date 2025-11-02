@@ -5,7 +5,6 @@ FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV UV_SYSTEM_PYTHON=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -25,8 +24,8 @@ ENV PATH="/root/.local/bin:$PATH"
 # Set working directory
 WORKDIR /app
 
-# Create virtual environment using uv
-RUN uv venv /app/.venv
+# Create virtual environment using uv with Python 3.11
+RUN uv venv /app/.venv --python 3.11
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
