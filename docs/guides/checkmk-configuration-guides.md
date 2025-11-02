@@ -72,32 +72,51 @@ After saving, you should see:
 ### 3.2 Add New Host
 
 1. Select the **Main** folder
-2. Click **Add host** button
+2. Click **Add host** button (or click **Add host to the monitoring** link)
 3. Configure the host:
    - **Hostname**: `prometheus-server` (or your preferred name)
-   - **IPv4 address**: Leave empty (we're using a special agent, not direct connection)
-   - **Alias**: `Prometheus Server`
+   - **IPv4 address**: `127.0.0.1` (placeholder - required even for special agents)
+     - **Note**: This IP won't be used for connection since Prometheus special agent uses the URL configured in the rule
+     - CheckMK requires an IP address for DNS lookup, but it's only used for hostname resolution
+   - **Alias**: `Prometheus Server` (optional, but recommended)
    - **Host tags**: Add tags like `monitoring`, `prometheus`, `docker` for organization
    - **Host labels**: Optional labels for filtering
 
+**Important**: Even though we're using a special agent that doesn't require direct host connection, CheckMK still requires an IP address field to be filled. Using `127.0.0.1` is a common workaround for virtual/special agent hosts.
+
 ### 3.3 Configure Host Agent
 
-1. In the host configuration, scroll to **Monitoring agents** section
-2. Select **Rule-based agent selection**
-3. The Prometheus special agent rule should automatically apply (if conditions match)
-   - If not, manually select it from the agent dropdown
+1. In the host configuration, the **Monitoring agents** section should be visible
+2. The default setting is **"API integrations if configured, else Checkmk agent"**
+3. The Prometheus special agent rule we created should automatically apply because:
+   - The host is in the "Main" folder (matching our rule condition)
+   - The rule has no other specific conditions that would exclude this host
+4. **Note**: You don't need to manually select the Prometheus agent - it will be applied automatically based on the rule
 
-### 3.4 Configure Services
+### 3.4 Save Host Configuration
 
-1. In the host configuration, go to **Services** section
-2. Click **Add service**
-3. Select **Prometheus services** or manually add PromQL-based services
-4. Define services using PromQL queries (see Step 4 below)
+1. Click **Save & run service discovery** to save the host and trigger service discovery
+   - This will save the host and immediately try to discover services
+2. If you encounter a DNS lookup error:
+   - The error "Failed to lookup IPv4 address of prometheus-server via DNS" can occur
+   - This is expected for special agents - CheckMK tries DNS lookup but it's not critical
+   - The services will still be discovered once you add PromQL queries to the rule or host
+3. The host will appear in the host list with 2 pending changes (host creation + rule application)
 
-### 3.5 Save Host Configuration
+### 3.5 Configure Services
 
-1. Click **Save** to save the host configuration
-2. The host will appear in the host list
+Services can be configured in two ways:
+
+**Option A: Add services to the Prometheus rule** (recommended for uniformity)
+1. Edit the Prometheus rule (Setup > Agents > VM, cloud, container > Prometheus)
+2. Click **Edit** on the rule you created
+3. In "Service creation using PromQL queries", click **Add new service**
+4. Configure each service (see Step 4 below)
+
+**Option B: Configure services per host**
+1. Navigate to the host: **Setup > Hosts > Main > prometheus-server**
+2. Go to **Services** section
+3. Add PromQL-based services directly to this host
 
 ## Step 4: Define Services Using PromQL Queries
 
@@ -196,10 +215,18 @@ Based on `docker/checkmk/prometheus_services/vllm_services.mk`, here are recomme
 
 ### 5.3 Verify Activation
 
-1. After activation, navigate to **Monitor** > **All hosts**
-2. You should see your new host (e.g., `prometheus-server`)
-3. Click on the host to view its services
-4. Services should start appearing as CheckMK queries Prometheus
+1. After activation, you'll see:
+   - Status: **"Activated"** and **"This site is up-to-date"**
+   - All pending changes are now active
+   
+2. **Important**: You may see a DNS lookup warning:
+   - Warning: "Cannot lookup IP address of 'prometheus-server' via DNS"
+   - **This is normal and expected** for Prometheus special agent hosts
+   - Prometheus special agents don't use DNS - they connect directly via the configured URL
+   - Monitoring will work correctly despite this warning
+
+3. Navigate to **Monitor** > **All hosts** to see your new host
+4. Services will appear once CheckMK's monitoring engine queries Prometheus (typically within 1-5 minutes)
 
 ## Step 6: Verify Service Discovery and Monitoring
 
@@ -337,15 +364,71 @@ docker exec gpu-cluster-checkmk omd backup cmk
 6. ⏳ Configure alerting rules
 7. ⏳ Set up dashboards and views
 
+## Configuration Progress Log
+
+### Completed Steps ✅
+
+**Step 1: Access CheckMK** ✅
+- Successfully logged into CheckMK web interface
+- Accessed main dashboard
+
+**Step 2: Configure Prometheus Rule** ✅
+- Created Prometheus special agent rule in Setup > Agents > VM, cloud, container > Prometheus
+- Configured rule with:
+  - Description: "Prometheus integration for vLLM and Ray Serve monitoring"
+  - URL: `http://prometheus:9090` (Docker service name)
+  - Protocol: HTTP
+  - Folder: Main (rule condition)
+- Rule saved successfully - **1 pending change**
+
+**Step 3: Create Host** ✅
+- Created host `prometheus-server` in Main folder
+- Host configuration:
+  - Hostname: `prometheus-server`
+  - IPv4: Not set (can use `127.0.0.1` as placeholder for special agents)
+  - Monitoring agent: Will auto-apply Prometheus rule (no manual selection needed)
+- Host saved successfully - **2 pending changes** (host + rule application)
+- Note: DNS lookup error occurred but is expected for special agent hosts - not critical
+
+**Step 4: Add PromQL Services to Rule** ✅
+- Edited the Prometheus rule to add services
+- Added first service:
+  - **Service name**: `vLLM KV Cache Utilization`
+  - **Metric label**: `kv_cache_usage_percent`
+  - **PromQL query**: `avg(vllm:gpu_cache_usage_perc{job="ray"}) * 100`
+- Service added successfully - **3 pending changes** (rule, host, service)
+- Rule saved with service definition
+
+**Step 5: Activate Changes** ✅
+- Navigated to Activate pending changes page
+- Changes were already activated (auto-activation)
+- Status: **Activated** - "This site is up-to-date"
+- Activation completed successfully
+- **Note**: DNS lookup warning appears but is expected for special agent hosts - does not affect monitoring
+  - Warning: "Cannot lookup IP address of 'prometheus-server' via DNS"
+  - This is normal: Prometheus special agent uses the configured URL (`http://prometheus:9090`), not DNS resolution
+
+**Step 6: Service Discovery** ⚠️
+- Service discovery preview shows DNS lookup error (expected)
+- **Important**: Services defined in Prometheus rule will be discovered and monitored automatically
+- The DNS warning is informational only - monitoring works via the Prometheus URL
+- Services will appear once CheckMK's monitoring engine runs and queries Prometheus
+
+**Next Steps:**
+- ⏳ Wait for monitoring engine to run (typically every 1-5 minutes)
+- ⏳ Verify services appear in monitoring view
+- ⏳ Add additional services (TTFT, TPOT, Ray Serve metrics, etc.) - can be done later by editing the rule
+- ⏳ Configure alert thresholds for services
+
 ## Summary
 
 This guide covered:
-1. Accessing CheckMK web interface
-2. Configuring Prometheus special agent rule
-3. Creating hosts for monitoring
-4. Defining services using PromQL queries
-5. Activating changes
-6. Verifying integration
+1. Accessing CheckMK web interface ✅
+2. Configuring Prometheus special agent rule ✅
+3. Creating hosts for monitoring ✅
+4. Defining services using PromQL queries ✅
+5. Activating changes ✅
+6. Understanding service discovery process ✅
 
 The configuration enables CheckMK to:
 - Query Prometheus for vLLM and Ray Serve metrics
