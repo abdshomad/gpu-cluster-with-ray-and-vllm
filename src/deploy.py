@@ -91,7 +91,6 @@ def main():
         
         # 3. Ray Actor Resource Allocation
         accelerator_type=accelerator_type,
-        num_replicas=num_replicas,
         
         # 4. vLLM Engine Keyword Arguments (kwargs)
         engine_kwargs={
