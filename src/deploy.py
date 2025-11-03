@@ -76,9 +76,9 @@ def create_llm_config_from_model_config(model_config: ModelConfig, hf_token: str
         'max_num_seqs': model_config.max_num_seqs,
         'trust_remote_code': model_config.trust_remote_code,
         'enable_prefix_caching': model_config.enable_prefix_caching,
-        # Reduce GPU memory utilization to 0.75 to allow models to load
-        # Default is 0.9 which requires 39.95 GiB, reducing to 0.75 requires ~33 GiB
-        'gpu_memory_utilization': 0.75,
+        # Reduce GPU memory utilization to 0.35 to fit within available free memory
+        # With only ~15.76 GiB free, we need very low utilization (0.35 = ~15.5 GiB requirement)
+        'gpu_memory_utilization': 0.35,
     }
     
     # Add pipeline_parallel_size if specified
