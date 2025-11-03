@@ -16,10 +16,14 @@ services:
       RAY_PROMETHEUS_HOST: "http://prometheus:9090"
       RAY_GRAFANA_HOST: "http://grafana:3000"
       RAY_GRAFANA_IFRAME_HOST: "${RAY_GRAFANA_IFRAME_HOST:-http://localhost:13000}"
+      # Ray configuration from .env
+      RAY_ADDRESS: "${RAY_ADDRESS:-auto}"
       # Load all environment variables from .env and .secrets
+      # Note: test-models-config.env can override with MODELS_CONFIG for multi-model testing
     env_file:
       - ../.env
       - ../.secrets
+      - ../docker/test-models-config.env  # Add test config (can override MODEL_ID)
     ports:
       # Ray API port (configurable via .env)
       - "${RAY_API_PORT:-8000}:8000"
@@ -32,6 +36,8 @@ services:
       - model_cache:/root/.cache/huggingface
       # Share Ray metrics directory with Prometheus
       - ray_metrics:/tmp/ray
+      # Temporary directory for Ray (with cleanup on restart)
+      - /tmp/ray-tmp:/tmp/ray-tmp
     networks:
       - gpu-cluster-network
     healthcheck:

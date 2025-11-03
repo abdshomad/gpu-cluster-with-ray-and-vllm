@@ -127,6 +127,12 @@ All configuration is done via environment variables in `.env`:
 - `MAX_REPLICAS`: Maximum autoscaling replicas (default: 4)
 - `TARGET_ONGOING_REQUESTS`: Target concurrent requests per replica (default: 32)
 
+**Ray Configuration:**
+- `RAY_ADDRESS`: Ray cluster address for connecting to Ray (default: `auto` for auto-detection)
+  - Use `auto` to auto-detect running Ray instance
+  - For remote connection: `ray://head-node-ip:10001`
+  - Required for `ray status` command when connecting from outside container
+
 **Port Configuration:**
 - `RAY_API_PORT`: Host port for Ray Serve API (default: 8000, recommended: 18000 to avoid conflicts)
 - `RAY_DASHBOARD_PORT`: Host port for Ray Dashboard (default: 8265, recommended: 18265 to avoid conflicts)

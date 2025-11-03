@@ -13,3 +13,6 @@ openai
 # Environment variable loading (if needed)
 python-dotenv
 
+# FastAPI for model endpoints (also included in ray[serve] but explicitly listed)
+fastapi
+
